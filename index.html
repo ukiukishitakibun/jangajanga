@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>白陽祭 ポイントスタンプラリー</title>
+  <title>79th柏葉祭実行委員会企画</title>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
   <header class="bg-gradient-custom text-white p-4 shadow-lg sticky top-0 z-40">
     <div class="max-w-md mx-auto flex justify-between items-center">
       <div>
-        <h1 class="font-bold text-lg leading-tight"><i class="fa-solid fa-stamp mr-2"></i>文化祭スタンプラリー</h1>
+          <h1 class="font-bold text-lg leading-tight"><i class="fa-solid fa-stamp mr-2"></i>79th柏葉祭実行委員会企画</h1>
         <p class="text-xs text-indigo-100" id="user-display-name">ゲスト プレイヤー</p>
       </div>
       <div class="text-right">
@@ -44,29 +44,13 @@
   <!-- メインコンテンツ -->
   <main class="max-w-md mx-auto p-4 space-y-6">
 
-    <!-- 景品プログレスバー -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-      <div class="flex justify-between items-center mb-2 text-sm font-bold">
-        <span><i class="fa-solid fa-gift text-pink-500 mr-1"></i> 景品アンロック</span>
-        <span class="text-indigo-600" id="progress-percent">0%</span>
-      </div>
-      <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-3">
-        <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-pink-500 h-full w-0 transition-all duration-500"></div>
-      </div>
-      <div class="grid grid-cols-3 gap-1 text-center text-xs">
-        <div id="reward-1" class="p-1 rounded bg-slate-50 text-slate-400">30pt<br>駄菓子</div>
-        <div id="reward-2" class="p-1 rounded bg-slate-50 text-slate-400">60pt<br>福引券</div>
-        <div id="reward-3" class="p-1 rounded bg-slate-50 text-slate-400">100pt<br>完走賞</div>
-      </div>
-    </div>
-
     <!-- タブ切り替えボタン -->
     <div class="flex bg-slate-200 p-1 rounded-xl font-bold text-xs">
       <button onclick="switchTab('scan')" id="tab-btn-scan" class="flex-1 py-2 rounded-lg bg-white shadow-sm text-indigo-600 transition">
         <i class="fa-solid fa-qrcode mr-1"></i> QRスキャン
       </button>
       <button onclick="switchTab('booths')" id="tab-btn-booths" class="flex-1 py-2 rounded-lg text-slate-600 transition">
-        <i class="fa-solid fa-list-check mr-1"></i> ブース一覧
+        <i class="fa-solid fa-list-check mr-1"></i> 自活一覧
       </button>
       <button onclick="switchTab('ranking')" id="tab-btn-ranking" class="flex-1 py-2 rounded-lg text-slate-600 transition relative">
         <i class="fa-solid fa-trophy mr-1"></i> 順位表
@@ -144,8 +128,8 @@
         <i class="fa-solid fa-user-plus"></i>
       </div>
       <h3 class="font-bold text-lg text-slate-800">スタンプラリー参加</h3>
-      <p class="text-xs text-slate-500">ランキングに表示されるニックネームを入力してください</p>
-      <input type="text" id="username-input" placeholder="例: たろう" maxlength="10" class="w-full border rounded-lg p-2 text-center text-base focus:ring-2 focus:ring-indigo-500 outline-none">
+      <p class="text-xs text-slate-500">ランキングに表示されるニックネームを入力してください（学年とクラスを必ず入れてください）</p>
+      <input type="text" id="username-input" placeholder="例: 2-8 米東三郎" maxlength="10" class="w-full border rounded-lg p-2 text-center text-base focus:ring-2 focus:ring-indigo-500 outline-none">
       <button onclick="saveUsername()" class="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg hover:bg-indigo-700 transition">スタート！</button>
     </div>
   </div>
@@ -154,13 +138,13 @@
   <div id="admin-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-slate-800"><i class="fa-solid fa-gear mr-1"></i> 実行委員会 管理パネル</h3>
+        <h3 class="font-bold text-slate-800"><i class="fa-solid fa-gear mr-1"></i> 柏葉祭実行委員会 管理パネル</h3>
         <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
       </div>
       
       <div id="admin-login-view" class="space-y-3">
         <p class="text-xs text-slate-500">管理者パスコードを入力してください</p>
-        <input type="password" id="admin-passcode" placeholder="パスコード (初期: 1234)" class="w-full border rounded-lg p-2 text-center font-mono">
+        <input type="password" id="admin-passcode" placeholder="パスコード " class="w-full border rounded-lg p-2 text-center font-mono">
         <button onclick="checkAdminPasscode()" class="w-full bg-slate-800 text-white font-bold py-2 rounded-lg">認証</button>
       </div>
 
@@ -173,14 +157,14 @@
         </div>
 
         <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-700">
-          <i class="fa-solid fa-circle-info mr-1"></i> 各ブース用QRコード一覧です。印刷して各所に掲示してください。
+          <i class="fa-solid fa-circle-info mr-1"></i> 各自活会場用QRコード一覧です。印刷して各所に掲示してください。
         </div>
         <div id="admin-qr-container" class="space-y-4"></div>
       </div>
     </div>
   </div>
 
-  <!-- スクリプト部 -->
+  <!-- ジャバスクリプト -->
   <script>
     // 1. Firebase 初期化設定
     const firebaseConfig = {
@@ -195,8 +179,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 2. パスコード・ブース定義
-    const ADMIN_PASSCODE = "1234";
+    // 2. パスコード・自活会場定義
+    const ADMIN_PASSCODE = "79th Make a miracle happen";
 
     const BOOTHS = [
       { id: 'b1', name: '1年A組 縁日屋台', points: 10, code: '101' },
@@ -246,10 +230,10 @@
     }
 
     function updateUserInfoUI() {
-      document.getElementById('user-display-name').innerText = username + ' 選手';
+      document.getElementById('user-display-name').innerText = username ;
     }
 
-    // 5. カメラON/OFF切り替えロジック
+    // 5. カメラON/OFF切り替え
     async function toggleCamera() {
       if (isCameraActive) {
         if (html5QrCode) {
@@ -304,7 +288,7 @@
         document.getElementById('reader').innerHTML = `
           <div class="p-8 text-white text-xs flex flex-col items-center justify-center">
             <i class="fa-solid fa-triangle-exclamation text-2xl mb-2 text-amber-400"></i>
-            カメラを起動できませんでした<br>下の「合言葉」をご利用ください
+            カメラを起動できませんでした<br>下の「コード」をご利用ください
           </div>
         `;
       });
@@ -324,7 +308,7 @@
       localStorage.setItem('stamp_visited_booths', JSON.stringify(visitedBooths));
 
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      alert(`🎉 『${booth.name}』のポイント（${booth.points}pt）を獲得しました！`);
+      alert('『${booth.name}』のポイント（${booth.points}pt）を獲得しました！`);
 
       renderBooths();
       updateProgress();
@@ -371,7 +355,7 @@
 
     // 管理者用全データリセット
     async function resetAllDatabaseData() {
-      if (!confirm('⚠️ 【警告】本当に全参加者のランキングデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
+      if (!confirm('【警告】本当に全参加者のランキングデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
       
       try {
         const snapshot = await db.collection("rankings").get();
@@ -484,7 +468,7 @@
         addPoint(booth.id);
         document.getElementById('passcode-input').value = '';
       } else {
-        alert('合言葉が違います。ブースの掲示を確認してください。');
+        alert('コードが違います。各自活会場の掲示を確認してください。');
       }
     }
 
