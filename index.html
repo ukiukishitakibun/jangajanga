@@ -79,7 +79,6 @@
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-center space-y-3">
         <div class="flex justify-between items-center px-1">
           <h2 class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-camera mr-1"></i> QRコード読み取り</h2>
-          <!-- カメラON/OFF切り替えボタン -->
           <button id="camera-toggle-btn" onclick="toggleCamera()" class="px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition">
             <i class="fa-solid fa-video mr-1"></i> カメラ起動
           </button>
@@ -127,10 +126,15 @@
   </main>
 
   <!-- フッター -->
-  <footer class="text-center text-xs text-slate-400 my-8">
-    <button onclick="openAdminModal()" class="underline hover:text-slate-600">
-      <i class="fa-solid fa-lock mr-1"></i>実行委員会・管理モード
-    </button>
+  <footer class="text-center text-xs text-slate-400 my-8 space-y-3">
+    <div>
+      <button onclick="resetMyData()" class="text-slate-400 hover:text-red-500 transition underline mr-4">
+        <i class="fa-solid fa-rotate-left mr-1"></i>自分のデータをリセット
+      </button>
+      <button onclick="openAdminModal()" class="underline hover:text-slate-600">
+        <i class="fa-solid fa-lock mr-1"></i>実行委員会・管理モード
+      </button>
+    </div>
   </footer>
 
   <!-- 名前入力モーダル -->
@@ -164,7 +168,7 @@
         <!-- 管理者全リセットボタン -->
         <div class="bg-red-50 border border-red-200 p-3 rounded-lg space-y-2">
           <div class="font-bold text-xs text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>全データ一括リセット</div>
-          <p class="text-[11px] text-red-600">全参加者のランキングデータを完全に消去します。テスト終了時や文化祭開始直前にご利用ください。</p>
+          <p class="text-[11px] text-red-600">全参加者のランキングデータを完全に消去します。</p>
           <button onclick="resetAllDatabaseData()" class="w-full bg-red-600 text-white font-bold text-xs py-2 rounded-lg hover:bg-red-700 transition">全参加者のデータを一括消去</button>
         </div>
 
@@ -345,7 +349,27 @@
       }, { merge: true });
     }
 
-    // 7. 管理者用全データリセット処理
+    // 7. 自分のデータを消去（初期化）する処理
+    async function resetMyData() {
+      if (!confirm('自分のポイントとスタンプを初期化しますか？')) return;
+      
+      // スマホ内のデータを消去
+      visitedBooths = [];
+      localStorage.removeItem('stamp_visited_booths');
+      
+      // Firebase上の自分のデータも削除
+      try {
+        await db.collection("rankings").doc(userId).delete();
+      } catch(e) {
+        console.log(e);
+      }
+
+      renderBooths();
+      updateProgress();
+      alert('自分のデータとポイントをリセットしました！');
+    }
+
+    // 管理者用全データリセット
     async function resetAllDatabaseData() {
       if (!confirm('⚠️ 【警告】本当に全参加者のランキングデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
       
