@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>白陽祭 ポイントスタンプラリー</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- html5-qrcode (QR読み取り) -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- canvas-confetti (紙吹雪演出) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- QRCode.js (印刷用QR生成) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Firebase SDK (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .bg-gradient-custom { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 pb-20">
+
+  <!-- ヘッダー -->
+  <header class="bg-gradient-custom text-white p-4 shadow-lg sticky top-0 z-40">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="font-bold text-lg leading-tight"><i class="fa-solid fa-stamp mr-2"></i>文化祭スタンプラリー</h1>
+        <p class="text-xs text-indigo-100" id="user-display-name">ゲスト プレイヤー</p>
+      </div>
+      <div class="text-right">
+        <span class="text-xs opacity-80 block">獲得ポイント</span>
+        <span class="text-2xl font-black text-yellow-300" id="total-points">0 <span class="text-sm font-normal">pt</span></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ領域 -->
+  <main class="max-w-md mx-auto p-4 space-y-6">
+
+    <!-- 景品進捗プログレスバー -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-2 text-sm font-bold">
+        <span><i class="fa-solid fa-gift text-pink-500 mr-1"></i> 景品アンロック</span>
+        <span class="text-indigo-600" id="progress-percent">0%</span>
+      </div>
+      <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden mb-3">
+        <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-pink-500 h-full w-0 transition-all duration-500"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-1 text-center text-xs">
+        <div id="reward-1" class="p-1 rounded bg-slate-50 text-slate-400">30pt<br>駄菓子</div>
+        <div id="reward-2" class="p-1 rounded bg-slate-50 text-slate-400">60pt<br>福引券</div>
+        <div id="reward-3" class="p-1 rounded bg-slate-50 text-slate-400">100pt<br>完走賞</div>
+      </div>
+    </div>
+
+    <!-- タブ切り替えボタン -->
+    <div class="flex bg-slate-200 p-1 rounded-xl font-bold text-xs">
+      <button onclick="switchTab('scan')" id="tab-btn-scan" class="flex-1 py-2 rounded-lg bg-white shadow-sm text-indigo-600 transition">
+        <i class="fa-solid fa-qrcode mr-1"></i> QRスキャン
+      </button>
+      <button onclick="switchTab('booths')" id="tab-btn-booths" class="flex-1 py-2 rounded-lg text-slate-600 transition">
+        <i class="fa-solid fa-list-check mr-1"></i> ブース一覧
+      </button>
+      <button onclick="switchTab('ranking')" id="tab-btn-ranking" class="flex-1 py-2 rounded-lg text-slate-600 transition relative">
+        <i class="fa-solid fa-trophy mr-1"></i> 順位表
+        <span class="inline-block w-2 h-2 bg-red-500 rounded-full absolute top-1 right-2 animate-ping"></span>
+      </button>
+    </div>
+
+    <!-- 1. QRスキャン・合言葉入力タブ -->
+    <section id="tab-scan" class="space-y-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-center">
+        <h2 class="font-bold text-slate-700 mb-2"><i class="fa-solid fa-camera mr-1"></i> QRコードを読み取る</h2>
+        <div id="reader" class="w-full rounded-lg overflow-hidden bg-black min-h-[220px]"></div>
+        <p class="text-xs text-slate-400 mt-2">カメラが起動しない場合は下の合言葉入力をお試しください</p>
+      </div>
+
+      <!-- バックアップ用合言葉入力 -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <h3 class="font-bold text-xs text-slate-500 mb-2"><i class="fa-solid fa-key mr-1"></i> カメラが動かないときは（合言葉入力）</h3>
+        <div class="flex gap-2">
+          <input type="text" id="passcode-input" placeholder="例: 101" maxlength="6" class="flex-1 border rounded-lg px-3 py-2 text-center text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none">
+          <button onclick="submitPasscode()" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-indigo-700 transition">送信</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. ブース一覧タブ -->
+    <section id="tab-booths" class="hidden space-y-3">
+      <div class="text-xs text-slate-500 flex justify-between items-center">
+        <span>全 <span id="booth-count">0</span> ブース</span>
+        <span>巡回済み: <span id="cleared-count" class="font-bold text-indigo-600">0</span></span>
+      </div>
+      <div id="booth-list" class="space-y-2"></div>
+    </section>
+
+    <!-- 3. リアルタイムランキングタブ -->
+    <section id="tab-ranking" class="hidden space-y-3">
+      <div class="bg-gradient-to-r from-amber-500 to-yellow-400 text-white p-3 rounded-xl shadow-sm flex justify-between items-center">
+        <span class="text-xs font-bold"><i class="fa-solid fa-wifi mr-1"></i> リアルタイム順位（全校同期）</span>
+        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">LIVE</span>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div id="ranking-list" class="divide-y divide-slate-100">
+          <div class="p-4 text-center text-slate-400 text-sm">ランキング読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- フッター（管理モードリンク） -->
+  <footer class="text-center text-xs text-slate-400 my-8">
+    <button onclick="openAdminModal()" class="underline hover:text-slate-600"><i class="fa-solid fa-lock mr-1"></i>実行委員会・管理モード</button>
+  </footer>
+
+  <!-- 名前入力モーダル（初回） -->
+  <div id="name-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-xs w-full shadow-2xl text-center space-y-4">
+      <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl">
+        <i class="fa-solid fa-user-plus"></i>
+      </div>
+      <h3 class="font-bold text-lg text-slate-800">スタンプラリー参加</h3>
+      <p class="text-xs text-slate-500">ランキングに表示されるニックネームを入力してください（後から変更可能）</p>
+      <input type="text" id="username-input" placeholder="例: たろう" maxlength="10" class="w-full border rounded-lg p-2 text-center text-base focus:ring-2 focus:ring-indigo-500 outline-none">
+      <button onclick="saveUsername()" class="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg hover:bg-indigo-700 transition">スタート！</button>
+    </div>
+  </div>
+
+  <!-- 管理者モーダル -->
+  <div id="admin-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-slate-800"><i class="fa-solid fa-gear mr-1"></i> 実行委員会 管理パネル</h3>
+        <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      
+      <div id="admin-login-view" class="space-y-3">
+        <p class="text-xs text-slate-500">管理者パスコードを入力してください</p>
+        <input type="password" id="admin-passcode" placeholder="パスコード (初期: 1234)" class="w-full border rounded-lg p-2 text-center font-mono">
+        <button onclick="checkAdminPasscode()" class="w-full bg-slate-800 text-white font-bold py-2 rounded-lg">認証</button>
+      </div>
+
+      <div id="admin-content-view" class="hidden space-y-4">
+        <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-700">
+          <i class="fa-solid fa-circle-info mr-1"></i> 各ブースのポスター用QRコードを自動生成しています。そのまま印刷して各ブースへ掲示してください。
+        </div>
+        <div id="admin-qr-container" class="space-y-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スクリプト制御 -->
+  <script>
+    // ==========================================
+    // 1. Firebase 設定（初期化）
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAtCYCd2i_mO1WsBbpbgeDRCZSGucbLUnY",
+      authDomain: "hakuyo-79th-ukiuki.firebaseapp.com",
+      projectId: "hakuyo-79th-ukiuki",
+      storageBucket: "hakuyo-79th-ukiuki.firebasestorage.app",
+      messagingSenderId: "480597223053",
+      appId: "1:480597223053:web:cae0af0be78fc932c7e4c4"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ==========================================
+    // 2. 基本設定・ブースデータ定義
+    // ==========================================
+    const ADMIN_PASSCODE = "1234"; // 管理者パスコード（ここで変更可能）
+
+    // ブースデータ（数・名称・ポイント・合言葉はここを編集）
+    const BOOTHS = [
+      { id: 'b1', name: '1年A組 縁日屋台', points: 10, code: '101' },
+      { id: 'b2', name: '1年B組 迷路アトラクション', points: 10, code: '102' },
+      { id: 'b3', name: '2年A組 おばけ屋敷', points: 15, code: '201' },
+      { id: 'b4', name: '2年B組 カフェ・喫茶', points: 10, code: '202' },
+      { id: 'b5', name: '3年有志 軽音部ライブ', points: 20, code: '301' },
+      { id: 'b6', name: '吹奏楽部 定期演奏会', points: 15, code: '302' },
+      { id: 'b7', name: '美術部 展示ブース', points: 10, code: '401' },
+      { id: 'b8', name: '生徒会 本部企画', points: 10, code: '901' }
+    ];
+
+    // ユーザー状態管理
+    let userId = localStorage.getItem('stamp_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
+    let username = localStorage.getItem('stamp_username') || '';
+    let visitedBooths = JSON.parse(localStorage.getItem('stamp_visited_booths') || '[]');
+
+    localStorage.setItem('stamp_user_id', userId);
+
+    // ==========================================
+    // 3. 画面初期化処理
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      // ユーザー名チェック
+      if (!username) {
+        document.getElementById('name-modal').classList.remove('hidden');
+      } else {
+        updateUserInfoUI();
+      }
+
+      renderBooths();
+      updateProgress();
+      initQRScanner();
+      listenToRealtimeRanking();
+    });
+
+    function saveUsername() {
+      const input = document.getElementById('username-input').value.trim();
+      if (!input) return alert('名前を入力してください！');
+      username = input;
+      localStorage.setItem('stamp_username', username);
+      document.getElementById('name-modal').classList.add('hidden');
+      updateUserInfoUI();
+      syncToFirebase();
+    }
+
+    function updateUserInfoUI() {
+      document.getElementById('user-display-name').innerText = username + ' 選手';
+    }
+
+    // ==========================================
+    // 4. ポイント加算＆Firebase同期処理
+    // ==========================================
+    function addPoint(boothId) {
+      const booth = BOOTHS.find(b => b.id === boothId);
+      if (!booth) return;
+
+      if (visitedBooths.includes(boothId)) {
+        alert('このブースのポイントは獲得済みです！');
+        return;
+      }
+
+      visitedBooths.push(boothId);
+      localStorage.setItem('stamp_visited_booths', JSON.stringify(visitedBooths));
+
+      // 演出
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      alert(`🎉 『${booth.name}』のポイント（${booth.points}pt）を獲得しました！`);
+
+      renderBooths();
+      updateProgress();
+      syncToFirebase();
+    }
+
+    function getTotalPoints() {
+      return visitedBooths.reduce((total, id) => {
+        const b = BOOTHS.find(item => item.id === id);
+        return total + (b ? b.points : 0);
+      }, 0);
+    }
+
+    function syncToFirebase() {
+      if (!username) return;
+      const pts = getTotalPoints();
+      
+      // Firestoreに自分の最新スコアを書き込み
+      db.collection("rankings").doc(userId).set({
+        name: username,
+        points: pts,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // ==========================================
+    // 5. リアルタイムランキング受診 (Firestore onSnapshot)
+    // ==========================================
+    function listenToRealtimeRanking() {
+      db.collection("rankings")
+        .orderBy("points", "desc")
+        .limit(20)
+        .onSnapshot((snapshot) => {
+          const listContainer = document.getElementById('ranking-list');
+          listContainer.innerHTML = '';
+
+          if (snapshot.empty) {
+            listContainer.innerHTML = '<div class="p-4 text-center text-slate-400 text-sm">まだデータがありません</div>';
+            return;
+          }
+
+          let rank = 1;
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const isMe = doc.id === userId;
+
+            let rankBadge = `<span class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center">${rank}</span>`;
+            if (rank === 1) rankBadge = `<span class="w-6 h-6 rounded-full bg-amber-400 text-white font-bold text-xs flex items-center justify-center">🥇</span>`;
+            if (rank === 2) rankBadge = `<span class="w-6 h-6 rounded-full bg-slate-300 text-white font-bold text-xs flex items-center justify-center">🥈</span>`;
+            if (rank === 3) rankBadge = `<span class="w-6 h-6 rounded-full bg-amber-600 text-white font-bold text-xs flex items-center justify-center">🥉</span>`;
+
+            const item = document.createElement('div');
+            item.className = `p-3 flex justify-between items-center ${isMe ? 'bg-indigo-50 font-bold' : ''}`;
+            item.innerHTML = `
+              <div class="flex items-center gap-3">
+                ${rankBadge}
+                <span class="text-sm ${isMe ? 'text-indigo-900' : 'text-slate-700'}">${data.name || '名無し'} ${isMe ? '<span class="text-[10px] bg-indigo-200 text-indigo-800 px-1 rounded">自分</span>' : ''}</span>
+              </div>
+              <span class="font-mono font-bold text-indigo-600">${data.points || 0} pt</span>
+            `;
+            listContainer.appendChild(item);
+            rank++;
+          });
+        });
+    }
+
+    // ==========================================
+    // 6. UIレンダリング・タブ切り替え
+    // ==========================================
+    function updateProgress() {
+      const currentPts = getTotalPoints();
+      const maxPts = BOOTHS.reduce((sum, b) => sum + b.points, 0);
+      const percent = Math.min(100, Math.round((currentPts / maxPts) * 100));
+
+      document.getElementById('total-points').innerHTML = `${currentPts} <span class="text-sm font-normal">pt</span>`;
+      document.getElementById('progress-percent').innerText = `${percent}%`;
+      document.getElementById('progress-bar').style.width = `${percent}%`;
+
+      // 景品アイコン状態更新
+      if (currentPts >= 30) document.getElementById('reward-1').className = 'p-1 rounded bg-pink-100 text-pink-700 font-bold';
+      if (currentPts >= 60) document.getElementById('reward-2').className = 'p-1 rounded bg-pink-100 text-pink-700 font-bold';
+      if (currentPts >= 100) document.getElementById('reward-3').className = 'p-1 rounded bg-pink-100 text-pink-700 font-bold';
+    }
+
+    function renderBooths() {
+      const container = document.getElementById('booth-list');
+      container.innerHTML = '';
+      document.getElementById('booth-count').innerText = BOOTHS.length;
+      document.getElementById('cleared-count').innerText = visitedBooths.length;
+
+      BOOTHS.forEach(b => {
+        const isDone = visitedBooths.includes(b.id);
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-xl border flex justify-between items-center ${isDone ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 shadow-sm'}`;
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-sm ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}">${b.name}</div>
+            <div class="text-xs text-indigo-500 font-semibold">+${b.points} pt</div>
+          </div>
+          <div>
+            ${isDone ? 
+              '<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-check"></i> 獲得済み</span>' : 
+              '<span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">未達成</span>'}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function switchTab(tabName) {
+      ['scan', 'booths', 'ranking'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.className = 'flex-1 py-2 rounded-lg text-slate-600 transition';
+      });
+
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+      activeBtn.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-indigo-600 font-bold transition';
+    }
+
+    // ==========================================
+    // 7. QRコードカメラ＆合言葉処理
+    // ==========================================
+    function initQRScanner() {
+      const html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 200, height: 200 } },
+        (decodedText) => {
+          // QRコード読み取り成功時
+          const booth = BOOTHS.find(b => b.id === decodedText || b.code === decodedText);
+          if (booth) {
+            addPoint(booth.id);
+          } else {
+            alert('無効なスタンプ用QRコードです');
+          }
+        },
+        () => {} // 読み取り中エラーは無視
+      ).catch(() => {
+        document.getElementById('reader').innerHTML = '<div class="p-8 text-white text-xs">カメラを起動できませんでした。<br>下の「合言葉」を入力してください。</div>';
+      });
+    }
+
+    function submitPasscode() {
+      const val = document.getElementById('passcode-input').value.trim();
+      const booth = BOOTHS.find(b => b.code === val);
+      if (booth) {
+        addPoint(booth.id);
+        document.getElementById('passcode-input').value = '';
+      } else {
+        alert('合言葉が違います。ブースの掲示を確認してください。');
+      }
+    }
+
+    // ==========================================
+    // 8. 管理者機能（印刷用QR自動作成）
+    // ==========================================
+    function openAdminModal() {
+      document.getElementById('admin-modal').classList.remove('hidden');
+    }
+    function closeAdminModal() {
+      document.getElementById('admin-modal').classList.add('hidden');
+    }
+
+    function checkAdminPasscode() {
+      const val = document.getElementById('admin-passcode').value;
+      if (val === ADMIN_PASSCODE) {
+        document.getElementById('admin-login-view').classList.add('hidden');
+        document.getElementById('admin-content-view').classList.remove('hidden');
+        generateAdminQRs();
+      } else {
+        alert('パスコードが正しくありません');
+      }
+    }
+
+    function generateAdminQRs() {
+      const container = document.getElementById('admin-qr-container');
+      container.innerHTML = '';
+
+      BOOTHS.forEach(b => {
+        const box = document.createElement('div');
+        box.className = 'border p-3 rounded-lg text-center bg-white space-y-2';
+        box.innerHTML = `
+          <div class="font-bold text-sm">${b.name}</div>
+          <div class="text-xs text-slate-500">ポイント: ${b.points}pt | 合言葉: <span class="font-mono font-bold text-red-500">${b.code}</span></div>
+          <div id="qr-${b.id}" class="flex justify-center py-2"></div>
+        `;
+        container.appendChild(box);
+
+        new QRCode(document.getElementById(`qr-${b.id}`), {
+          text: b.id,
+          width: 128,
+          height: 128
+        });
+      });
+    }
+  </script>
+</body>
+</html>
