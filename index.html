@@ -76,10 +76,20 @@
 
     <!-- 1. QRスキャン・合言葉入力タブ -->
     <section id="tab-scan" class="space-y-4">
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-center">
-        <h2 class="font-bold text-slate-700 mb-2"><i class="fa-solid fa-camera mr-1"></i> QRコードを読み取る</h2>
-        <div id="reader" class="w-full rounded-lg overflow-hidden bg-black min-h-[220px]"></div>
-        <p class="text-xs text-slate-400 mt-2">カメラが起動しない場合は下の合言葉入力をお試しください</p>
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-center space-y-3">
+        <div class="flex justify-between items-center px-1">
+          <h2 class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-camera mr-1"></i> QRコード読み取り</h2>
+          <!-- カメラON/OFF切り替えボタン -->
+          <button id="camera-toggle-btn" onclick="toggleCamera()" class="px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition">
+            <i class="fa-solid fa-video mr-1"></i> カメラ起動
+          </button>
+        </div>
+        <div id="reader" class="w-full rounded-lg overflow-hidden bg-slate-900 min-h-[200px] flex items-center justify-center">
+          <div class="p-8 text-white text-xs flex flex-col items-center justify-center">
+            <i class="fa-solid fa-video-slash text-2xl mb-2 text-slate-500"></i>
+            カメラは停止中です
+          </div>
+        </div>
       </div>
 
       <!-- 合言葉入力 -->
@@ -118,7 +128,9 @@
 
   <!-- フッター -->
   <footer class="text-center text-xs text-slate-400 my-8">
-    <button onclick="openAdminModal()" class="underline hover:text-slate-600"><i class="fa-solid fa-lock mr-1"></i>実行委員会・管理モード</button>
+    <button onclick="openAdminModal()" class="underline hover:text-slate-600">
+      <i class="fa-solid fa-lock mr-1"></i>実行委員会・管理モード
+    </button>
   </footer>
 
   <!-- 名前入力モーダル -->
@@ -149,6 +161,13 @@
       </div>
 
       <div id="admin-content-view" class="hidden space-y-4">
+        <!-- 管理者全リセットボタン -->
+        <div class="bg-red-50 border border-red-200 p-3 rounded-lg space-y-2">
+          <div class="font-bold text-xs text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>全データ一括リセット</div>
+          <p class="text-[11px] text-red-600">全参加者のランキングデータを完全に消去します。テスト終了時や文化祭開始直前にご利用ください。</p>
+          <button onclick="resetAllDatabaseData()" class="w-full bg-red-600 text-white font-bold text-xs py-2 rounded-lg hover:bg-red-700 transition">全参加者のデータを一括消去</button>
+        </div>
+
         <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-700">
           <i class="fa-solid fa-circle-info mr-1"></i> 各ブース用QRコード一覧です。印刷して各所に掲示してください。
         </div>
@@ -186,7 +205,7 @@
       { id: 'b8', name: '生徒会 本部企画', points: 10, code: '901' }
     ];
 
-    // 3. ユーザー識別IDの固定化（リロード対策）
+    // 3. ユーザー識別ID＆状態
     let userId = localStorage.getItem('stamp_user_id');
     if (!userId) {
       userId = 'user_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -195,19 +214,20 @@
 
     let username = localStorage.getItem('stamp_username') || '';
     let visitedBooths = JSON.parse(localStorage.getItem('stamp_visited_booths') || '[]');
+    let html5QrCode = null;
+    let isCameraActive = false;
 
-    // 4. 初期起動ロジック
+    // 4. 初期起動
     window.addEventListener('DOMContentLoaded', () => {
       renderBooths();
       updateProgress();
-      initQRScanner();
       listenToRealtimeRanking();
 
       if (!username) {
         document.getElementById('name-modal').classList.remove('hidden');
       } else {
         updateUserInfoUI();
-        syncToFirebase(); // リロード時にもFirebaseへデータ保持を通知
+        syncToFirebase();
       }
     });
 
@@ -218,14 +238,75 @@
       localStorage.setItem('stamp_username', username);
       document.getElementById('name-modal').classList.add('hidden');
       updateUserInfoUI();
-      syncToFirebase(); // 名前登録時点で0ptでもFirebaseに同期
+      syncToFirebase();
     }
 
     function updateUserInfoUI() {
       document.getElementById('user-display-name').innerText = username + ' 選手';
     }
 
-    // 5. ポイント獲得・Firebase同期
+    // 5. カメラON/OFF切り替えロジック
+    async function toggleCamera() {
+      if (isCameraActive) {
+        if (html5QrCode) {
+          try {
+            await html5QrCode.stop();
+          } catch(e) { console.log(e); }
+        }
+        isCameraActive = false;
+        const btn = document.getElementById('camera-toggle-btn');
+        btn.innerHTML = '<i class="fa-solid fa-video mr-1"></i> カメラ起動';
+        btn.className = 'px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition';
+        
+        document.getElementById('reader').innerHTML = `
+          <div class="p-8 text-white text-xs flex flex-col items-center justify-center">
+            <i class="fa-solid fa-video-slash text-2xl mb-2 text-slate-500"></i>
+            カメラは停止中です
+          </div>
+        `;
+      } else {
+        startQRScanner();
+      }
+    }
+
+    function startQRScanner() {
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+      
+      const btn = document.getElementById('camera-toggle-btn');
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 起動中...';
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 200, height: 200 } },
+        (decodedText) => {
+          const booth = BOOTHS.find(b => b.id === decodedText || b.code === decodedText);
+          if (booth) {
+            addPoint(booth.id);
+          } else {
+            alert('無効なスタンプ用QRコードです');
+          }
+        },
+        () => {}
+      ).then(() => {
+        isCameraActive = true;
+        btn.innerHTML = '<i class="fa-solid fa-video-slash mr-1"></i> カメラOFF';
+        btn.className = 'px-3 py-1 bg-slate-200 text-slate-700 rounded-lg font-bold text-xs hover:bg-slate-300 transition';
+      }).catch(err => {
+        isCameraActive = false;
+        btn.innerHTML = '<i class="fa-solid fa-video mr-1"></i> カメラ起動';
+        btn.className = 'px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition';
+        document.getElementById('reader').innerHTML = `
+          <div class="p-8 text-white text-xs flex flex-col items-center justify-center">
+            <i class="fa-solid fa-triangle-exclamation text-2xl mb-2 text-amber-400"></i>
+            カメラを起動できませんでした<br>下の「合言葉」をご利用ください
+          </div>
+        `;
+      });
+    }
+
+    // 6. ポイント＆データ同期
     function addPoint(boothId) {
       const booth = BOOTHS.find(b => b.id === boothId);
       if (!booth) return;
@@ -257,17 +338,31 @@
       if (!username) return;
       const pts = getTotalPoints();
       
-      // Firestoreに自分のIDでスコアを保存
       db.collection("rankings").doc(userId).set({
         name: username,
         points: pts,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(err => {
-        console.error("Firebase Sync Error:", err);
-      });
+      }, { merge: true });
     }
 
-    // 6. リアルタイムランキング受信
+    // 7. 管理者用全データリセット処理
+    async function resetAllDatabaseData() {
+      if (!confirm('⚠️ 【警告】本当に全参加者のランキングデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
+      
+      try {
+        const snapshot = await db.collection("rankings").get();
+        const batch = db.batch();
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+        alert('全参加者のランキングデータをリセットしました。');
+      } catch (err) {
+        alert('リセット処理中にエラーが発生しました: ' + err.message);
+      }
+    }
+
+    // 8. リアルタイムランキング受診
     function listenToRealtimeRanking() {
       db.collection("rankings")
         .orderBy("points", "desc")
@@ -303,13 +398,10 @@
             listContainer.appendChild(item);
             rank++;
           });
-        }, (error) => {
-          console.error("Ranking Listen Error:", error);
-          document.getElementById('ranking-list').innerHTML = '<div class="p-4 text-center text-red-400 text-sm">ランキングを取得できませんでした</div>';
         });
     }
 
-    // 7. UIレンダリング・タブ
+    // 9. UIレンダリング・タブ
     function updateProgress() {
       const currentPts = getTotalPoints();
       const maxPts = BOOTHS.reduce((sum, b) => sum + b.points, 0);
@@ -361,26 +453,6 @@
       activeBtn.className = 'flex-1 py-2 rounded-lg bg-white shadow-sm text-indigo-600 font-bold transition';
     }
 
-    // 8. QRカメラ・合言葉
-    function initQRScanner() {
-      const html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 200, height: 200 } },
-        (decodedText) => {
-          const booth = BOOTHS.find(b => b.id === decodedText || b.code === decodedText);
-          if (booth) {
-            addPoint(booth.id);
-          } else {
-            alert('無効なスタンプ用QRコードです');
-          }
-        },
-        () => {}
-      ).catch(() => {
-        document.getElementById('reader').innerHTML = '<div class="p-8 text-white text-xs">カメラを起動できませんでした。<br>下の「合言葉」を入力してください。</div>';
-      });
-    }
-
     function submitPasscode() {
       const val = document.getElementById('passcode-input').value.trim();
       const booth = BOOTHS.find(b => b.code === val);
@@ -392,7 +464,7 @@
       }
     }
 
-    // 9. 管理者モード
+    // 10. 管理者機能
     function openAdminModal() {
       document.getElementById('admin-modal').classList.remove('hidden');
     }
