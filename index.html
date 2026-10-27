@@ -343,7 +343,7 @@
 
     // 管理者用全データリセット
     async function resetAllDatabaseData() {
-      if (!confirm('【警告】本当に全参加者のランキングデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
+      if (!confirm('【警告】本当に全参加者のデータを完全に全削除しますか？\nこの操作は取り消せません。')) return;
       
       try {
         const snapshot = await db.collection("rankings").get();
@@ -447,7 +447,7 @@
         addPoint(booth.id);
         document.getElementById('passcode-input').value = '';
       } else {
-        alert('ワードが違います。各自活会場の掲示を確認してください。');
+        alert('コードが違います。各自活会場の掲示を確認してください。');
       }
     }
 
