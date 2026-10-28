@@ -178,10 +178,8 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-
-    // 2. パスコード・ブース定義
     const ADMIN_PASSCODE = "79th Make a miracle happen";
-
+    
     const BOOTHS = [
       { id: 'b1', name: '1年A組 縁日屋台', points: 10, code: '101' },
       { id: 'b2', name: '1年B組 迷路アトラクション', points: 10, code: '102' },
